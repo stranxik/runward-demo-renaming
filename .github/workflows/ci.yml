@@ -1,0 +1,23 @@
+# Two jobs on purpose: the whole demonstration is the gap between them.
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  tests:
+    name: tests (the code works)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: cd code && npm ci && npm test
+  gate:
+    name: runward gate (the delivery holds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npx --yes runward@0.37.1 check --strict
