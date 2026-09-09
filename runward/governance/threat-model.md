@@ -47,7 +47,7 @@ The review queue is prioritized (compliance deadline first) and summaries are un
 | Rule | Status | Evidence |
 |---|---|---|
 | eval-loop | applied | test:code/test/triage.test.ts — evaluation-rubric.md — abstention scenarios, guard-escalation rate watched off the hot path |
-| security-prompt-injection | applied | file:code/src/core/domain/guard.ts#guardFields — §3 guardrails — untrusted request text is data; deterministic guard before RoutingPort (ADR-0002) |
+| security-prompt-injection | applied | file:code/src/core/domain/guard.ts#applyFieldGuards — §3 guardrails — untrusted request text is data; deterministic guard before RoutingPort (ADR-0002) |
 | config-secrets-boundary | n/a | the illustrative floor reads no provider secret (deterministic keyword classifier) |
 | resilience-fail-open | applied | §3 — sensitive routing fails closed; the guard rejects on doubt (ADR-0002) |
 | resilience-multi-provider-fallback | n/a | single deterministic classifier; no second provider in this floor |
