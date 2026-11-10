@@ -1,0 +1,45 @@
+# One gesture, from a phone: Actions > "prepare the next demonstration" > Run workflow.
+# It puts the demonstration back at its start (see scripts/prepare-next-demo.sh): the base branch clean,
+# the rename and its repair open as two pull requests. Idempotent: a second run changes nothing.
+# It never pushes to the base branch, never forces, never merges, never closes or deletes anything.
+name: prepare the next demonstration
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "the branch the demonstration is played on (main; another branch only to rehearse this workflow)"
+        type: string
+        default: main
+  pull_request:
+    paths: [".github/workflows/prepare-next-demo.yml", "scripts/prepare-next-demo.sh"]
+permissions: {}
+jobs:
+  prepare:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    # one at a time: a second run waits for the one that is running, then finds its work done
+    concurrency: { group: prepare-next-demo, cancel-in-progress: false }
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # contents: push the two new branches; pull-requests: open them; actions: start their checks
+    permissions: { contents: write, pull-requests: write, actions: write }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { fetch-depth: 0 }
+      - name: prepare the next demonstration
+        env: { GH_TOKEN: "${{ github.token }}", BASE: "${{ inputs.base }}", DRY_RUN: "false" }
+        # run from a copy: the script moves the working tree to other commits while it runs
+        run: cp scripts/prepare-next-demo.sh "$RUNNER_TEMP/prepare-next-demo.sh" && bash "$RUNNER_TEMP/prepare-next-demo.sh"
+
+  rehearse:
+    # A pull request that changes this workflow or its script shows what a run would find and do.
+    # Read-only: nothing is written.
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: { contents: read, pull-requests: read, actions: read }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: dry run against the base of this pull request
+        env: { GH_TOKEN: "${{ github.token }}", BASE: "${{ github.base_ref }}", DRY_RUN: "true" }
+        run: cp scripts/prepare-next-demo.sh "$RUNNER_TEMP/prepare-next-demo.sh" && bash "$RUNNER_TEMP/prepare-next-demo.sh"
