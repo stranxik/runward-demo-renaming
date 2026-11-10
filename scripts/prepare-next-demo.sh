@@ -86,6 +86,9 @@ find_pr() { # $1 = wanted code name, $2 = wanted record name -> "number<TAB>bran
   done
 }
 
+# The first line of what find_pr printed (the newest matching pull request), or nothing.
+first_pr() { local all; all=$(find_pr "$1" "$2"); echo "${all%%$'\n'*}"; }
+
 bot_identity() {
   git config user.name "github-actions[bot]"
   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -146,14 +149,23 @@ make_repair() { # $1 = from, $2 = to, $3 = start point -> sets NEW_BRANCH, NEW_S
 }
 
 open_pr() { # $1 = branch, $2 = title, $3 = body -> prints the number
-  gh pr create -R "$REPO" --base "$BASE" --head "$1" --title "$2" --body "$3" | sed -E 's#.*/pull/##'
+  local url
+  if ! url=$(gh pr create -R "$REPO" --base "$BASE" --head "$1" --title "$2" --body "$3"); then
+    {
+      echo "::error::the branch $1 is pushed, and GitHub refused to open its pull request"
+      echo "If this runs in GitHub Actions: Settings > Actions > General > allow GitHub Actions to create pull requests, then run this again (it reuses the branch)."
+    } >&2
+    echo "**Stopped.** \`$1\` is pushed, and GitHub refused to open its pull request. In GitHub Actions this needs the repository setting that lets Actions create pull requests. Run this again afterwards: it reuses the branch." >> "$SUMMARY"
+    exit 1
+  fi
+  echo "${url##*/pull/}"
 }
 
 REPLAY_NOTE="Opened by the workflow that prepares the next demonstration ($RUN_URL). It is a scripted replay: the first rename and the first repair of this demonstration were made by a coding agent (see the README)."
 
 # --- the base is refused: the rename is integrated, the record has not followed yet ---------------------
 if [ "$CODE" != "$RECORD" ]; then
-  REPAIR=$(find_pr "$CODE" "$CODE" | head -1)
+  REPAIR=$(first_pr "$CODE" "$CODE")
   if [ -n "$REPAIR" ]; then
     IFS=$'\t' read -r R_NUM R_BRANCH R_SHA <<< "$REPAIR"
     say "- repair: #$R_NUM (\`$R_BRANCH\`), already open"
@@ -176,8 +188,8 @@ fi
 
 # --- the base is clean: the two pull requests of the next demonstration must be open --------------------
 NEXT=$(other_of "$CODE")
-RENAME=$(find_pr "$NEXT" "$CODE" | head -1)
-REPAIR=$(find_pr "$NEXT" "$NEXT" | head -1)
+RENAME=$(first_pr "$NEXT" "$CODE")
+REPAIR=$(first_pr "$NEXT" "$NEXT")
 
 if [ -n "$RENAME" ]; then
   IFS=$'\t' read -r N_NUM N_BRANCH N_SHA <<< "$RENAME"
@@ -190,7 +202,7 @@ else
   make_rename "$CODE" "$NEXT" "$BASE_SHA"
   N_BRANCH="$NEW_BRANCH"; N_SHA="$NEW_SHA"
   N_NUM=$(open_pr "$N_BRANCH" "refactor: rename $CODE to $NEXT (tests green, runward check refused)" \
-    "A rename of \`$CODE\` to \`$NEXT\`, applied everywhere the code uses it. The tests stay green. The delivery record still cites \`$CODE\` in two places, one of them in the threat model, so \`runward check --strict\` refuses this commit, and the example release with it.
+    "A rename of \`$CODE\` to \`$NEXT\`, applied everywhere the code uses it. The tests stay green. The delivery record still cites \`$CODE\` in two places, one of them in the threat model, so \`runward check --strict\` refuses this commit.
 
 $REPLAY_NOTE")
   say "- rename \`$CODE\` to \`$NEXT\`: #$N_NUM (\`$N_BRANCH\`), opened"
@@ -206,7 +218,7 @@ elif [ "$DRY_RUN" = "true" ]; then
 else
   make_repair "$CODE" "$NEXT" "$N_SHA"
   R_NUM=$(open_pr "$NEW_BRANCH" "docs(mission): the record follows the rename to $NEXT (two pointers, runward check clean)" \
-    "On top of the rename (#$N_NUM): the two pointers of the record now cite \`$NEXT\`. Two lines, nothing else. \`runward check --strict\` is clean again, and the example release passes its condition.
+    "On top of the rename (#$N_NUM): the two pointers of the record now cite \`$NEXT\`. Two lines, nothing else. \`runward check --strict\` is clean again.
 
 Integrate the rename first, then this one.
 
