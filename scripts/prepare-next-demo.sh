@@ -149,7 +149,16 @@ make_repair() { # $1 = from, $2 = to, $3 = start point -> sets NEW_BRANCH, NEW_S
 }
 
 open_pr() { # $1 = branch, $2 = title, $3 = body -> prints the number
-  gh pr create -R "$REPO" --base "$BASE" --head "$1" --title "$2" --body "$3" | sed -E 's#.*/pull/##'
+  local url
+  if ! url=$(gh pr create -R "$REPO" --base "$BASE" --head "$1" --title "$2" --body "$3"); then
+    {
+      echo "::error::the branch $1 is pushed, and GitHub refused to open its pull request"
+      echo "If this runs in GitHub Actions: Settings > Actions > General > allow GitHub Actions to create pull requests, then run this again (it reuses the branch)."
+    } >&2
+    echo "**Stopped.** \`$1\` is pushed, and GitHub refused to open its pull request. In GitHub Actions this needs the repository setting that lets Actions create pull requests. Run this again afterwards: it reuses the branch." >> "$SUMMARY"
+    exit 1
+  fi
+  echo "${url##*/pull/}"
 }
 
 REPLAY_NOTE="Opened by the workflow that prepares the next demonstration ($RUN_URL). It is a scripted replay: the first rename and the first repair of this demonstration were made by a coding agent (see the README)."
