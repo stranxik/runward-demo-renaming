@@ -1,23 +1,159 @@
-# Two jobs on purpose: the whole demonstration is the gap between them.
+# Two jobs on purpose: the whole demonstration is the gap between them. `tests` says the code works;
+# `gate` says whether the delivery record still describes the code. The example release depends on both.
+# Actions are pinned by commit; permissions are the least each job needs.
 name: ci
 on:
   push:
-  pull_request:
   workflow_dispatch:
+permissions: {}
+concurrency: { group: "ci-${{ github.ref }}-${{ github.event_name }}", cancel-in-progress: false }
 jobs:
   tests:
     name: tests (the code works)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: { contents: read }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
-      - run: cd code && npm ci && npm test
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with: { node-version: "24" }
+      - run: cd code && npm ci --no-audit --no-fund && npm test
+
   gate:
     name: runward gate (the delivery holds)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: { contents: read }
+    outputs:
+      exit: ${{ steps.check.outputs.exit }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 24 }
-      - run: npx --yes runward@0.37.1 check --strict
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with: { node-version: "24" }
+      - name: install runward 0.46.0, integrity checked, outside the tree, without scripts
+        run: |
+          mkdir -p "$RUNNER_TEMP/rw" && cd "$RUNNER_TEMP/rw"
+          curl -sSfLo runward.tgz https://registry.npmjs.org/runward/-/runward-0.46.0.tgz
+          echo "+O+Q8yVcdxCNm9bsb9IbrIcHU5SB90hgfReoHdKolzCwTvBggWn7DXDu6IAhX84bHQ8M6qJks6yU6DHbtFyLIQ==  runward.tgz" > want
+          [ "$(openssl dgst -sha512 -binary runward.tgz | base64 -w0)  runward.tgz" = "$(cat want)" ] || { echo "runward tarball integrity mismatch"; exit 1; }
+          npm install --ignore-scripts --no-audit --no-fund --prefix . ./runward.tgz >/dev/null
+      - id: check
+        name: runward check --strict (read it here; the same verdict is kept as check.json)
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/out"
+          "$RUNNER_TEMP/rw/node_modules/.bin/runward" check --strict --json > "$RUNNER_TEMP/out/check.json"
+          code=$?
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          "$RUNNER_TEMP/rw/node_modules/.bin/runward" check --strict
+          echo "runward check: exit $code"
+          exit 0
+      - name: keep check.json (what runward wrote for this commit, refused or not)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with: { name: check-json, path: "${{ runner.temp }}/out/check.json", if-no-files-found: error, retention-days: 90 }
+      - name: runward's verdict, given back to the job
+        env: { CODE: "${{ steps.check.outputs.exit }}" }
+        run: exit "$CODE"
+
+  release:
+    # An example, and it says so: it deploys nothing. It shows a release step that depends on the check.
+    # It runs whatever the two jobs above concluded, and refuses in words unless both are green.
+    name: release (example, deploys nothing)
+    needs: [tests, gate]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: the tests and the runward check of this exact commit are green (anything else is a refusal)
+        env: { TESTS: "${{ needs.tests.result }}", GATE: "${{ needs.gate.result }}", SHA: "${{ github.sha }}" }
+        run: |
+          {
+            echo "### Example release"
+            echo ""
+            echo "- commit: \`$SHA\`"
+            echo "- tests: $TESTS"
+            echo "- runward check: $GATE"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TESTS" = "success" ] && [ "$GATE" = "success" ]; then
+            echo "Both are green: the example release may start." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Refused.** The example release starts only when the tests and the runward check are both green for this commit. This is an example: nothing was going to be deployed." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=example release refused::tests: $TESTS, runward check: $GATE, for $SHA: no release"
+            exit 1
+          fi
+      - name: the example release itself (one line; nothing is built, pushed or deployed)
+        env: { SHA: "${{ github.sha }}" }
+        run: |
+          echo "example release of $SHA: a real pipeline would build and deploy here; this one deploys nothing"
+          echo "Example release of \`$SHA\` passed its condition. Nothing was deployed: this repository has no production." >> "$GITHUB_STEP_SUMMARY"
+
+  page:
+    # The static page runward-fleet builds from check.json, kept as a CI artifact and published nowhere.
+    # runward-fleet is not on npm: it is taken from stranxik/runward at one pinned commit of main
+    # (never a branch head), and the job checks that this is the commit it got.
+    name: static page (CI artifact, published nowhere)
+    needs: gate
+    if: ${{ always() && (needs.gate.result == 'success' || needs.gate.result == 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: { contents: read }
+    env:
+      FLEET_COMMIT: 5a9cdf08a76977f9b671662f562e98d332ccc95e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false, path: demo }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: stranxik/runward
+          ref: 5a9cdf08a76977f9b671662f562e98d332ccc95e
+          sparse-checkout: packages/runward-fleet
+          persist-credentials: false
+          path: runward-src
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with: { node-version: "24" }
+      - name: runward-fleet is the code at the pinned commit
+        run: '[ "$(git -C runward-src rev-parse HEAD)" = "$FLEET_COMMIT" ] || { echo "runward-src is not at $FLEET_COMMIT"; exit 1; }'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with: { name: check-json, path: "${{ runner.temp }}/fleet/exports" }
+      - name: build the page (the date on it is the commit's date, declared; nothing reads a clock)
+        env: { SHA: "${{ github.sha }}", REPO: "${{ github.repository }}" }
+        run: |
+          cd "$RUNNER_TEMP/fleet"
+          AS_OF=$(git -C "$GITHUB_WORKSPACE/demo" show -s --format=%cs "$SHA")
+          cat > fleet.json <<JSON
+          {
+            "format": "runward-fleet-manifest/0",
+            "title": "runward-demo-renaming",
+            "asOf": "$AS_OF",
+            "lang": "en",
+            "missions": [
+              {
+                "id": "runward-demo-renaming",
+                "name": "$REPO",
+                "repository": "github.com/$REPO",
+                "commit": "$SHA",
+                "commitSource": "GITHUB_SHA of the CI run that wrote check.json",
+                "expects": ["check"],
+                "exports": { "check": { "file": "exports/check.json", "producedBy": "runward check --strict --json" } }
+              }
+            ]
+          }
+          JSON
+          node "$GITHUB_WORKSPACE/runward-src/packages/runward-fleet/src/cli.js" build fleet.json --out site
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with: { name: static-page, path: "${{ runner.temp }}/fleet/site", if-no-files-found: error, retention-days: 90 }
+
+  send:
+    # Wired, and off. It turns on when the repository variable RUNWARD_HOSTED_SEND is "on" (see README,
+    # "Sending the check to runward hosted"). Leave it off until the service is deployed and send.yml has
+    # its first release; then replace the commit below by the commit of that release. The commit pinned
+    # today is NOT a release: it is the commit of main that last changed send.yml, kept here only so that
+    # the reference resolves. send.yml accepts runward 0.46.0 only, and sends only on a push to main.
+    if: ${{ vars.RUNWARD_HOSTED_SEND == 'on' }}
+    permissions: { contents: read, id-token: write }
+    uses: stranxik/runward-hosted/.github/workflows/send.yml@5660736dd650014ff516595a17184cc2039f93b7
+    with: { mission: runward-demo-renaming }
