@@ -202,7 +202,7 @@ else
   make_rename "$CODE" "$NEXT" "$BASE_SHA"
   N_BRANCH="$NEW_BRANCH"; N_SHA="$NEW_SHA"
   N_NUM=$(open_pr "$N_BRANCH" "refactor: rename $CODE to $NEXT (tests green, runward check refused)" \
-    "A rename of \`$CODE\` to \`$NEXT\`, applied everywhere the code uses it. The tests stay green. The delivery record still cites \`$CODE\` in two places, one of them in the threat model, so \`runward check --strict\` refuses this commit, and the example release with it.
+    "A rename of \`$CODE\` to \`$NEXT\`, applied everywhere the code uses it. The tests stay green. The delivery record still cites \`$CODE\` in two places, one of them in the threat model, so \`runward check --strict\` refuses this commit.
 
 $REPLAY_NOTE")
   say "- rename \`$CODE\` to \`$NEXT\`: #$N_NUM (\`$N_BRANCH\`), opened"
@@ -218,7 +218,7 @@ elif [ "$DRY_RUN" = "true" ]; then
 else
   make_repair "$CODE" "$NEXT" "$N_SHA"
   R_NUM=$(open_pr "$NEW_BRANCH" "docs(mission): the record follows the rename to $NEXT (two pointers, runward check clean)" \
-    "On top of the rename (#$N_NUM): the two pointers of the record now cite \`$NEXT\`. Two lines, nothing else. \`runward check --strict\` is clean again, and the example release passes its condition.
+    "On top of the rename (#$N_NUM): the two pointers of the record now cite \`$NEXT\`. Two lines, nothing else. \`runward check --strict\` is clean again.
 
 Integrate the rename first, then this one.
 
