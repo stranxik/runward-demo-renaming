@@ -19,7 +19,7 @@ import {
 } from "../domain/triage.js";
 import {
   guardCategory,
-  guardFields,
+  applyFieldGuards,
   buildApprovalSummary,
 } from "../domain/guard.js";
 import type { TriageModelPort } from "../ports/model-provider.port.js";
@@ -61,7 +61,7 @@ export class TriageRequestUseCase {
     // 3. Deterministic guard (ADR-0002): closed vocabulary, registry
     //    resolution, deadline re-parsed from the source text.
     const category = guardCategory(proposal.category);
-    const guarded = guardFields(proposal, input.body, registry);
+    const guarded = applyFieldGuards(proposal, input.body, registry);
 
     const record: TriageRecord = {
       requestId: input.requestId,
