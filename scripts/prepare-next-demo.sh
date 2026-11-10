@@ -86,6 +86,9 @@ find_pr() { # $1 = wanted code name, $2 = wanted record name -> "number<TAB>bran
   done
 }
 
+# The first line of what find_pr printed (the newest matching pull request), or nothing.
+first_pr() { local all; all=$(find_pr "$1" "$2"); echo "${all%%$'\n'*}"; }
+
 bot_identity() {
   git config user.name "github-actions[bot]"
   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -153,7 +156,7 @@ REPLAY_NOTE="Opened by the workflow that prepares the next demonstration ($RUN_U
 
 # --- the base is refused: the rename is integrated, the record has not followed yet ---------------------
 if [ "$CODE" != "$RECORD" ]; then
-  REPAIR=$(find_pr "$CODE" "$CODE" | head -1)
+  REPAIR=$(first_pr "$CODE" "$CODE")
   if [ -n "$REPAIR" ]; then
     IFS=$'\t' read -r R_NUM R_BRANCH R_SHA <<< "$REPAIR"
     say "- repair: #$R_NUM (\`$R_BRANCH\`), already open"
@@ -176,8 +179,8 @@ fi
 
 # --- the base is clean: the two pull requests of the next demonstration must be open --------------------
 NEXT=$(other_of "$CODE")
-RENAME=$(find_pr "$NEXT" "$CODE" | head -1)
-REPAIR=$(find_pr "$NEXT" "$NEXT" | head -1)
+RENAME=$(first_pr "$NEXT" "$CODE")
+REPAIR=$(first_pr "$NEXT" "$NEXT")
 
 if [ -n "$RENAME" ]; then
   IFS=$'\t' read -r N_NUM N_BRANCH N_SHA <<< "$RENAME"
