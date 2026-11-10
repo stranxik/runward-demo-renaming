@@ -65,7 +65,7 @@ export interface GuardedFields {
   escalations: string[];
 }
 
-export function guardFields(
+export function applyFieldGuards(
   proposal: TriageProposal,
   sourceText: string,
   registry: AccountRegistryPort,
