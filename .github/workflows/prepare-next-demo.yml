@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   prepare:
     if: ${{ github.event_name == 'workflow_dispatch' }}
-    # one at a time: a second run waits for the first, then finds its work done
+    # one at a time: a second run waits for the one that is running, then finds its work done
     concurrency: { group: prepare-next-demo, cancel-in-progress: false }
     runs-on: ubuntu-24.04
     timeout-minutes: 10

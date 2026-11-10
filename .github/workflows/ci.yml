@@ -59,10 +59,11 @@ jobs:
 
   release:
     # An example, and it says so: it deploys nothing. It shows a release step that depends on the check.
-    # It runs whatever the two jobs above concluded, and refuses in words unless both are green.
+    # It runs whatever the two jobs above concluded (a cancelled run aside), and refuses in words unless
+    # both are green.
     name: release (example, deploys nothing)
     needs: [tests, gate]
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -97,7 +98,7 @@ jobs:
     # (never a branch head), and the job checks that this is the commit it got.
     name: static page (CI artifact, published nowhere)
     needs: gate
-    if: ${{ always() && (needs.gate.result == 'success' || needs.gate.result == 'failure') }}
+    if: ${{ !cancelled() && (needs.gate.result == 'success' || needs.gate.result == 'failure') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: { contents: read }
