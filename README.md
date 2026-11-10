@@ -14,7 +14,6 @@ Every commit runs the same workflow ([`ci.yml`](.github/workflows/ci.yml)), and 
 |---|---|---|---|
 | `tests (the code works)` | green | green | green |
 | `runward gate (the delivery holds)` | green | **red** | green |
-| `release (example, deploys nothing)` | passes its condition | **refused** | passes its condition |
 
 The rename and its repair are the two open pull requests of this repository. The first rename and the
 first repair on this workflow were made by a coding agent: their commits carry a `Claude-Session` line.
@@ -63,13 +62,6 @@ sha512 with the published integrity, and installs it outside the checkout, witho
   `runward-fleet` is not on npm; the job takes it from one pinned commit of `stranxik/runward`
   (`5a9cdf08a76977f9b671662f562e98d332ccc95e`, on `main`), never from a branch head, and checks that
   this is the commit it got. The page is a CI artifact only: this repository publishes it nowhere.
-
-## The example release
-
-`release (example, deploys nothing)` is what its name says: an example of a release step that depends
-on the gate. It runs on every commit, reads the result of the two jobs before it, and starts only when
-both are green for that exact commit. Otherwise it refuses and says why, in the log and in the run
-summary. It builds nothing, pushes nothing and deploys nothing: this repository has no production.
 
 ## Sending the check to runward hosted (wired, off)
 

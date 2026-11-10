@@ -13,10 +13,11 @@ on:
   pull_request:
     paths: [".github/workflows/prepare-next-demo.yml", "scripts/prepare-next-demo.sh"]
 permissions: {}
-concurrency: { group: prepare-next-demo, cancel-in-progress: false }
 jobs:
   prepare:
     if: ${{ github.event_name == 'workflow_dispatch' }}
+    # one at a time: a second run waits for the one that is running, then finds its work done
+    concurrency: { group: prepare-next-demo, cancel-in-progress: false }
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # contents: push the two new branches; pull-requests: open them; actions: start their checks
