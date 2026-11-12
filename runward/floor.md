@@ -19,7 +19,7 @@
 
 | Rule | Status | Evidence |
 |---|---|---|
-| frontier-deterministic-boundary | applied | file:code/src/core/domain/guard.ts#guardFields; test:code/test/triage.test.ts — every action-bearing field recomputed/verified (ADR-0002), fail-closed |
+| frontier-deterministic-boundary | applied | file:code/src/core/domain/guard.ts#applyFieldGuards; test:code/test/triage.test.ts — every action-bearing field recomputed/verified (ADR-0002), fail-closed |
 | hexa-move-deterministic-out | applied | file:code/src/core/domain/guard.ts#parseDeadline — classification and validation are deterministic, out of the model |
 | config-secrets-boundary | n/a | the illustrative floor runs the deterministic keyword classifier; no provider secret is read in this example code |
 | provider-llm-auto-detection | n/a | only the deterministic keyword adapter ships here; no real provider to auto-detect |
