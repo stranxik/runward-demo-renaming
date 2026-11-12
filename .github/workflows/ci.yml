@@ -114,12 +114,11 @@ jobs:
         with: { name: static-page, path: "${{ runner.temp }}/fleet/site", if-no-files-found: error, retention-days: 90 }
 
   send:
-    # Wired, and off. It turns on when the repository variable RUNWARD_HOSTED_SEND is "on" (see README,
-    # "Sending the check to runward hosted"). Leave it off until the service is deployed and send.yml has
-    # its first release; then replace the commit below by the commit of that release. The commit pinned
-    # today is NOT a release: it is the commit of main that last changed send.yml, kept here only so that
-    # the reference resolves. send.yml accepts runward 0.46.0 only, and sends only on a push to main.
+    # Wired, and on when the repository variable RUNWARD_HOSTED_SEND is "on" (see README, "Sending the
+    # check to runward hosted"). The commit below is the send workflow the hosted service accepts today
+    # (its /api/version names it under sendWorkflow). send.yml accepts runward 0.46.0 only, and sends only
+    # on a push to main.
     if: ${{ vars.RUNWARD_HOSTED_SEND == 'on' }}
     permissions: { contents: read, id-token: write }
-    uses: stranxik/runward-hosted/.github/workflows/send.yml@5660736dd650014ff516595a17184cc2039f93b7
+    uses: stranxik/runward-hosted/.github/workflows/send.yml@f70f2705cd416e38389e6c0a5c8be9f002179f8b
     with: { mission: runward-demo-renaming }
